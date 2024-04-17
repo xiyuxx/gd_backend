@@ -1,0 +1,2 @@
+[global.databases]
+gd_data = {url = "postgresql://postgres:xiyuxx@127.0.0.1:5432/graduationDesign"}
