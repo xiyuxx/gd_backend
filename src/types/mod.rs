@@ -1,8 +1,12 @@
 use std::io::Cursor;
 use rocket::{Request, Response};
-use rocket::http::ContentType;
+use rocket::http::{ContentType, Status};
+use rocket::request::{FromRequest, Outcome};
 use rocket::response::Responder;
 use serde::{Deserialize, Serialize};
+use crate::auth::AuthCheck;
+use crate::auth::token::decode_token;
+use crate::config::TokenInfo;
 
 #[derive(Serialize,Deserialize,Debug,Eq, PartialEq,Clone)]
 pub struct RtData<T> {
@@ -19,7 +23,7 @@ impl<T:Serialize> RtData<T>{
 }
 
 impl<'r> Responder<'r,'static> for RtData<DefaultData> {
-    fn respond_to(self, request: &'r Request<'_>) -> rocket::response::Result<'static> {
+    fn respond_to(self, _request: &'r Request<'_>) -> rocket::response::Result<'static> {
         let data = self.to_string();
 
         Response::build()
@@ -43,4 +47,53 @@ pub enum RtStatus {
 pub enum DefaultData{
     Success(()),
     Failure(())
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+pub struct SignData {
+    pub name:String,
+    pub id:String,
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct UserMsg {
+    pub id: String,
+}
+
+#[rocket::async_trait]
+impl<'r> FromRequest<'r> for UserMsg {
+    type Error = String;
+    async fn from_request(req: &'r Request<'_>) -> Outcome<Self, Self::Error> {
+        return if req
+            .local_cache(|| AuthCheck {
+                is_valid_token: false,
+            })
+            .is_valid_token
+        {
+            let my_config = req
+                .rocket()
+                .state::<TokenInfo>()
+                .expect("get global custom config error in fairing");
+            let token_field = my_config.token_field.as_str();
+            let token_key = my_config.token_key.as_str();
+
+            let header = req.headers();
+            let token_data = header.get(token_field).next();
+            if let Some(token) = token_data {
+                let token = decode_token(token, token_key).unwrap();
+                let id = token.claims.id;
+                Outcome::Success(UserMsg { id })
+            } else {
+                Outcome::Failure((
+                    Status::BadRequest,
+                    String::from("user no login or token expired"),
+                ))
+            }
+        } else {
+            Outcome::Failure((
+                Status::BadRequest,
+                String::from("user no login or token expired"),
+            ))
+        }
+    }
 }
