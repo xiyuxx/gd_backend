@@ -1,5 +1,7 @@
+
 use std::str::FromStr;
 use jsonwebtoken::get_current_timestamp;
+use sqlx::postgres::PgRow;
 use uuid::Uuid;
 use crate::auth::{MoreUser, RegisterResult};
 use crate::db::{DbQueryResult, GdDBC, SqlxError};
@@ -53,7 +55,6 @@ pub async fn try_register_user(
                                 return Err(err);
                             }
                         }
-                        // register_user(db,sql,id,name).await?
                     }
 
                     _ => return Err(db_err)
@@ -121,5 +122,25 @@ async fn register_user(
             Err(err)
         }
     }
+}
+
+pub async fn get_user_msg(
+    (login_key,pwd,is_email):(String,String,bool),
+    mut db:GdDBC
+) -> DbQueryResult<PgRow> {
+    let condition = if is_email {
+        format!("email = '{login_key}'")
+    } else {
+        format!("phone = '{login_key}'")
+    };
+    
+    let pwd = format!("{:x}",md5::compute(pwd));
+    let sql = format!(
+        "select * from public.user where pwd = '{pwd}' and {condition}"
+    );
+    
+    dbg!(&sql);
+    
+    sqlx::query(&sql).fetch_one(&mut *db).await
 }
 

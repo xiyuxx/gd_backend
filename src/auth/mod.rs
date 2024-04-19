@@ -100,6 +100,14 @@ impl<'r> Responder<'r,'static> for RtData<RegisterResult> {
     }
 }
 
+#[derive(Debug,Serialize,Deserialize,Clone,Eq, PartialEq,FromForm)]
+pub struct LoginData{
+    #[field(name="login_key")]
+    login_key:String,
+    #[field(name="pwd")]
+    pwd:String,
+}
+
 
 
 

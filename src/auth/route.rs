@@ -1,12 +1,15 @@
+use std::time::SystemTime;
+use chrono::{DateTime, NaiveDateTime, Utc};
 use rocket::{post, State};
 use rocket::form::Form;
 use rocket::http::Status;
-use uuid::Uuid;
-use crate::auth::{AddUser, MoreUser, RegisterResult, RegisterUser};
-use crate::auth::db_service::{ try_register_user};
-use crate::auth::validate::{validate_register_data, ValidateData};
-use crate::db::{DbQueryResult, GdDBC};
-use crate::types::{RtData, RtStatus};
+use sqlx::{FromRow, Row};
+use uuid::{Uuid};
+use crate::auth::{AddUser, LoginData, MoreUser, RegisterResult, RegisterUser};
+use crate::auth::db_service::{get_user_msg, try_register_user};
+use crate::auth::validate::{validate_login_data, validate_register_data, ValidateData};
+use crate::db::{DbQueryResult, GdDBC, SqlxError};
+use crate::types::{LoginSuccessData, RtData, RtStatus};
 
 #[post("/register/add",data="<add_data>")]
 pub async fn add_user(
@@ -82,4 +85,52 @@ fn handle_register_res(res:DbQueryResult<RegisterResult>) -> Result<RtData<Regis
             return Err(Status::InternalServerError);
         }
     }
+}
+
+#[post("/login",data="<login_data>")]
+pub async fn login(
+    db:GdDBC,
+    validator:&State<ValidateData>,
+    mut login_data: Form<LoginData>
+) -> Result<RtData<LoginSuccessData>,Status> {
+    let user_login_key = login_data.login_key.to_owned();
+    let pwd = login_data.pwd.to_owned();
+
+    let is_email = validate_login_data(&mut login_data,&validator)?;
+    let res = get_user_msg((user_login_key,pwd,is_email),db).await;
+
+    let user_msg = match res {
+        Ok(row) => {
+
+            LoginSuccessData::from_row(&row)
+        }
+        Err(err) => {
+            return match err {
+                SqlxError::RowNotFound => {
+                    dbg!("row not found");
+                    Err(Status::BadRequest)
+                }
+                _ => {
+                    let db_err = err.into_database_error().expect("is not db err");
+                    dbg!(db_err.message());
+                    Err(Status::InternalServerError)
+                }
+
+            };
+        }
+    };
+    let user_msg = match user_msg {
+        Ok(data) => data,
+        Err(e) => {
+            dbg!("conversion from pgRow to struct error",e);
+            return Err(Status::InternalServerError);
+        }
+    };
+
+    Ok(RtData{
+        success: true,
+        msg: String::from("login success"),
+        status: RtStatus::Success,
+        data:user_msg,
+    })
 }

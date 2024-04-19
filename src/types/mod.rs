@@ -1,12 +1,16 @@
 use std::io::Cursor;
+use chrono::{NaiveDateTime};
+
 use rocket::{Request, Response};
 use rocket::http::{ContentType, Status};
 use rocket::request::{FromRequest, Outcome};
 use rocket::response::Responder;
 use serde::{Deserialize, Serialize};
 use crate::auth::AuthCheck;
-use crate::auth::token::decode_token;
+use crate::auth::token::{decode_token, set_token};
 use crate::config::TokenInfo;
+use uuid::Uuid;
+use sqlx::FromRow;
 
 #[derive(Serialize,Deserialize,Debug,Eq, PartialEq,Clone)]
 pub struct RtData<T> {
@@ -95,5 +99,55 @@ impl<'r> FromRequest<'r> for UserMsg {
                 String::from("user no login or token expired"),
             ))
         }
+    }
+}
+
+
+#[derive(Debug,Serialize,Deserialize,Clone,Eq, PartialEq,FromRow)]
+pub struct LoginSuccessData{
+    #[sqlx(rename = "id")]
+    #[sqlx(try_from = "Uuid")]
+    pub user_id:String,
+    pub name:String,
+    #[sqlx(default)]
+    pub phone:Option<String>,
+    #[sqlx(default)]
+    pub gender:Option<String>,
+    #[sqlx(default)]
+    pub email:Option<String>,
+    #[sqlx(try_from = "Uuid")]
+    pub organization:String,
+    #[sqlx(default)]
+    pub work_id:Option<String>,
+    pub create_time:NaiveDateTime,
+    #[sqlx(default)]
+    pub avatar:Option<String>,
+    #[sqlx(default)]
+    pub background:Option<String>
+}
+
+
+impl RtData<LoginSuccessData> {
+    fn hide_user_id(&mut self){
+        self.data.user_id = String::from("-");
+    }
+}
+
+impl<'r> Responder<'r,'static> for RtData<LoginSuccessData> {
+    fn respond_to(mut self, request: &'r Request<'_>) -> rocket::response::Result<'static> {
+        let user_id = self.data.user_id.as_str().to_owned();
+
+        let data = self.to_string();
+
+        request.local_cache(||AuthCheck{
+            is_valid_token:true
+        });
+
+        let (token_field,token) = set_token(request,user_id.as_str());
+
+        Response::build()
+            .header(ContentType::JSON)
+            .raw_header(token_field,token)
+            .sized_body(data.len(),Cursor::new(data)).ok()
     }
 }

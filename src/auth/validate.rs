@@ -1,6 +1,8 @@
 use regex::Regex;
+use rocket::form::Form;
 use rocket::http::Status;
 use rocket::State;
+use crate::auth::LoginData;
 
 #[derive(Debug,Clone)]
 pub struct ValidateData{
@@ -73,37 +75,37 @@ impl ValidateData {
     }
 }
 
-// pub fn validate_login_data(
-//     form_data: &mut Form<LoginData>,
-//     validator: &State<ValidateData>,
-// ) -> Result<bool, Status> {
-//     let user_login_key = form_data.user_login_key.to_owned();
-//     let pwd = form_data.pwd.to_owned();
-//
-//     dbg!(&form_data);
-//
-//     if user_login_key.is_empty() || pwd.is_empty() {
-//         return Err(Status::BadRequest);
-//     }
-//
-//     // vailidate
-//
-//     let mut is_email = false;
-//     let mut is_fail = false;
-//
-//     if user_login_key.contains("@") {
-//         is_email = true;
-//         is_fail = !validator.validate_email(&user_login_key);
-//     } else {
-//         is_fail = !validator.validate_phone(&user_login_key);
-//     };
-//
-//     if is_fail {
-//         return Err(Status::BadRequest);
-//     }
-//
-//     Ok(is_email)
-// }
+pub fn validate_login_data(
+    form_data: &mut Form<LoginData>,
+    validator: &State<ValidateData>,
+) -> Result<bool, Status> {
+    let user_login_key = form_data.login_key.to_owned();
+    let pwd = form_data.pwd.to_owned();
+
+    dbg!(&form_data);
+
+    if user_login_key.is_empty() || pwd.is_empty() {
+        return Err(Status::BadRequest);
+    }
+
+    // vailidate
+
+    let mut is_email = false;
+    let is_fail: bool;
+
+    if user_login_key.contains("@") {
+        is_email = true;
+        is_fail = !validator.validate_email(&user_login_key);
+    } else {
+        is_fail = !validator.validate_phone(&user_login_key);
+    };
+
+    if is_fail {
+        return Err(Status::BadRequest);
+    }
+
+    Ok(is_email)
+}
 
 pub fn validate_register_data(
     (name, pwd, email, phone): (String, String, String, String),
