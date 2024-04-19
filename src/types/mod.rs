@@ -134,7 +134,7 @@ impl RtData<LoginSuccessData> {
 }
 
 impl<'r> Responder<'r,'static> for RtData<LoginSuccessData> {
-    fn respond_to(mut self, request: &'r Request<'_>) -> rocket::response::Result<'static> {
+    fn respond_to(self, request: &'r Request<'_>) -> rocket::response::Result<'static> {
         let user_id = self.data.user_id.as_str().to_owned();
 
         let data = self.to_string();
@@ -148,6 +148,28 @@ impl<'r> Responder<'r,'static> for RtData<LoginSuccessData> {
         Response::build()
             .header(ContentType::JSON)
             .raw_header(token_field,token)
+            .sized_body(data.len(),Cursor::new(data)).ok()
+    }
+}
+
+
+#[derive(Debug,Serialize,Deserialize,Eq, PartialEq,Clone)]
+pub enum InsertResult{
+    Exist(String),
+    Success(String),
+}
+
+impl<'r> Responder<'r,'static> for RtData<InsertResult> {
+    fn respond_to(self, request: &'r Request<'_>) -> rocket::response::Result<'static> {
+
+        let data = self.to_string();
+
+        request.local_cache(||AuthCheck{
+            is_valid_token:true
+        });
+
+        Response::build()
+            .header(ContentType::JSON)
             .sized_body(data.len(),Cursor::new(data)).ok()
     }
 }

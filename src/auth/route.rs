@@ -101,7 +101,9 @@ pub async fn login(
 
     let user_msg = match res {
         Ok(row) => {
-
+            // sqlx = { version = "0.6.3", features = ["uuid","postgres","chrono"]}
+            // chrono is very important!! without it this line wouldn't execute correctly
+            // the correspond field's type is NaiveDateTime
             LoginSuccessData::from_row(&row)
         }
         Err(err) => {
