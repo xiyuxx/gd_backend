@@ -1,9 +1,10 @@
-use rocket::{ post};
+use rocket::{get, post};
 use rocket::form::Form;
 use rocket::http::Status;
-use crate::db::{GdDBC, SqlxError};
-use crate::project::db_service::try_insert_project;
-use crate::project::types::{ProjectSetter};
+use sqlx::FromRow;
+use crate::db::{ GdDBC, SqlxError};
+use crate::project::db_service::{select_project, try_insert_project};
+use crate::project::types::{Project, ProjectCollector, ProjectSetter};
 use crate::types::{InsertResult, RtData, RtStatus};
 
 #[post("/set_project",data="<project_data>")]
@@ -38,6 +39,37 @@ pub async fn set_project(
                     Err(Status::InternalServerError)
                 }
             }
+        }
+    }
+}
+
+#[get("/get_project?<user_id>")]
+pub async fn get_project(
+    db:GdDBC,
+    user_id:String,
+) -> Result<RtData<ProjectCollector>,Status> {
+
+    let res = select_project(db,user_id).await;
+    dbg!("开始执行查询所有项目");
+    match res {
+        Ok(v) => {
+            dbg!("总共行数：",v.len());
+            // do not make sure the type in here
+            let mut projects:Vec<_> = vec![];
+            projects = v.iter().map(|row| Project::from_row(row).unwrap()).collect::<Vec<Project>>();
+            dbg!("查询到{}个项目",projects.len());
+            Ok(RtData{
+                success:true,
+                msg:String::from("get all projects success"),
+                data: ProjectCollector{
+                    projects
+                },
+                status:RtStatus::Success,
+            })
+        }
+        Err(err) => {
+            dbg!("查询所有项目出错了",err);
+            Err(Status::InternalServerError)
         }
     }
 }

@@ -1,6 +1,7 @@
 
 use std::str::FromStr;
 use jsonwebtoken::get_current_timestamp;
+use sqlx::postgres::PgRow;
 use uuid::Uuid;
 use crate::db::{DbQueryResult, GdDBC, SqlxError};
 use crate::project::types::{ProjectSetter};
@@ -86,4 +87,32 @@ pub async fn try_insert_on_participation(
             Err(err)
         }
     }
+}
+
+pub async fn select_project(
+    mut db:GdDBC,
+    user_id: String
+) -> DbQueryResult<Vec<PgRow>> {
+    // pro_id,name,logo,desc,last_update,admin_name,if_star
+    // participation: pro_id,if_star
+    // user: admin_name(user_id)
+    // project: name,logo,desc,last_update
+    let user_id = Uuid::from_str(user_id.as_str()).unwrap();
+    let sql = r#"
+    SELECT
+        p.id,
+        p.name,
+        p.logo,
+        p.description,
+        p.last_update,
+        admin.name AS admin_name,
+        pa.star
+    FROM public.project p
+    JOIN public.participation pa ON p.id = pa.project_id
+    LEFT JOIN public.user admin ON pa.user_id = admin.id AND pa.role = 0
+    WHERE pa.user_id = $1;
+    "#;
+dbg!(&sql);
+    sqlx::query(sql).bind(user_id)
+        .fetch_all(&mut *db).await
 }

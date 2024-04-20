@@ -126,11 +126,6 @@ pub struct LoginSuccessData{
     pub background:Option<String>
 }
 
-
-impl RtData<LoginSuccessData> {
-
-}
-
 impl<'r> Responder<'r,'static> for RtData<LoginSuccessData> {
     fn respond_to(self, request: &'r Request<'_>) -> rocket::response::Result<'static> {
         let user_id = self.data.user_id.as_str().to_owned();
