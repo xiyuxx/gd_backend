@@ -25,6 +25,8 @@ pub struct ProjectCollector{
 
 #[derive(Debug,Clone,Eq, PartialEq,Serialize,Deserialize,FromForm)]
 pub struct ProjectSetter {
+    #[field(name="userId")]
+    pub user_id:String,
     #[field(name="id")]
     pub id:Option<String>,
     #[field(name="name")]

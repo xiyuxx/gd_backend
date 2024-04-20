@@ -128,9 +128,7 @@ pub struct LoginSuccessData{
 
 
 impl RtData<LoginSuccessData> {
-    fn hide_user_id(&mut self){
-        self.data.user_id = String::from("-");
-    }
+
 }
 
 impl<'r> Responder<'r,'static> for RtData<LoginSuccessData> {

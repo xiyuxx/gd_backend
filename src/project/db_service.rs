@@ -1,3 +1,4 @@
+
 use std::str::FromStr;
 use jsonwebtoken::get_current_timestamp;
 use uuid::Uuid;
@@ -8,40 +9,81 @@ use crate::utils::timestamp_to_date;
 
 pub async fn try_insert_project(
     mut db:GdDBC,
-    project_creator: ProjectSetter
+    mut project_creator: ProjectSetter
 ) -> DbQueryResult<InsertResult> {
     let pro_c = project_creator.clone();
-    // project_id
-    let id = if let Some(pro_id) = pro_c.id{
-        pro_id
-    }else{
-        Uuid::new_v4().to_string()
-    };
-    let update_time = if let Some(last) = pro_c.last_update{
-        last
-    }else{
-        timestamp_to_date(get_current_timestamp())
-    };
+    let is_new = pro_c.id.is_none();
+
     let name = pro_c.name;
     let logo = pro_c.logo;
     let organization = Uuid::from_str(pro_c.organization.as_str()).unwrap() ;
     let desc = pro_c.description.as_ref().map(String::as_str);
 
+    // project_id
+    let pro_id;
+    let update_time;
+    if is_new {
+        pro_id = Uuid::new_v4().to_string();
+        update_time = timestamp_to_date(get_current_timestamp());
+        project_creator.id = Some(pro_id.clone());
+    } else{
+        pro_id = pro_c.id.unwrap();
+        update_time = pro_c.last_update.unwrap();
+    }
+
     let sql = format!(
-        "insert into public.project values('{id}','{name}','{logo}','{organization}',$1,'{update_time}')\
+        "insert into public.project values('{pro_id}','{name}','{logo}','{organization}',$1,'{update_time}')\
         on conflict(id) do update set name = '{name}',logo = '{logo}',organization = '{organization}',\
         description = $2, last_update = '{update_time}'"
     );
-
-    return match sqlx::query(&sql).bind(desc).bind(desc)
-        .fetch_one(&mut *db).await {
-        Ok(_) => Ok(InsertResult::Success("project adjust successfully".to_string())),
+    match sqlx::query(&sql).bind(desc).bind(desc).fetch_one(&mut *db).await{
+        // if insert or update success
+        Ok(_) => {
+            // judge insert or update by is_new
+            // if is_new equals to true means is insert
+            //  then execute insert on participation
+            return if is_new {
+                try_insert_on_participation(db,project_creator).await
+            }
+            // or it is update, just return
+            else {
+                Ok(InsertResult::Exist("project adjust successfully".to_string()))
+            }
+        }
         Err(err) => {
-            if let SqlxError::RowNotFound = err {
-                return Ok(InsertResult::Success("project adjust successfully".to_string()))
+            if let SqlxError::RowNotFound = err{
+                try_insert_on_participation(db,project_creator).await?;
             }
             Err(err)
         }
     }
 
+}
+
+pub async fn try_insert_on_participation(
+    mut db:GdDBC,
+    project_setter: ProjectSetter
+) -> DbQueryResult<InsertResult> {
+    let user_id = project_setter.user_id;
+    let pro_id = project_setter.id.unwrap();
+
+    let sql = format!(
+        "insert into public.participation (user_id, project_id, role, star) \
+                values('{user_id}','{pro_id}','0','0')"
+    );
+    match sqlx::query(&sql)
+        .fetch_one(&mut *db).await {
+        // check whether the insert on participation success
+        Ok(_) => {
+            dbg!("用户{}参与项目{}成功！",user_id,pro_id);
+            Ok(InsertResult::Success("participate project successfully".to_string()))
+        }
+        Err(err) => {
+            if let SqlxError::RowNotFound = err {
+                dbg!("用户{}参与项目{}成功！",user_id,pro_id);
+                return Ok(InsertResult::Exist("participate project successfully".to_string()))
+            }
+            Err(err)
+        }
+    }
 }

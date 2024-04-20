@@ -1,9 +1,7 @@
-use std::time::SystemTime;
-use chrono::{DateTime, NaiveDateTime, Utc};
 use rocket::{post, State};
 use rocket::form::Form;
 use rocket::http::Status;
-use sqlx::{FromRow, Row};
+use sqlx::{FromRow};
 use uuid::{Uuid};
 use crate::auth::{AddUser, LoginData, MoreUser, RegisterResult, RegisterUser};
 use crate::auth::db_service::{get_user_msg, try_register_user};
