@@ -166,3 +166,24 @@ impl<'r> Responder<'r,'static> for RtData<InsertResult> {
             .sized_body(data.len(),Cursor::new(data)).ok()
     }
 }
+
+#[derive(Debug,Serialize,Deserialize,Eq, PartialEq,Clone)]
+pub enum DeleteResult{
+    NoExist(String),
+    Success(String),
+}
+
+impl<'r> Responder<'r,'static> for RtData<DeleteResult> {
+    fn respond_to(self, request: &'r Request<'_>) -> rocket::response::Result<'static> {
+
+        let data = self.to_string();
+
+        request.local_cache(||AuthCheck{
+            is_valid_token:true
+        });
+
+        Response::build()
+            .header(ContentType::JSON)
+            .sized_body(data.len(),Cursor::new(data)).ok()
+    }
+}

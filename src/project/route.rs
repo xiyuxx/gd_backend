@@ -2,10 +2,10 @@ use rocket::{get, post};
 use rocket::form::Form;
 use rocket::http::Status;
 use sqlx::FromRow;
-use crate::db::{ GdDBC, SqlxError};
-use crate::project::db_service::{select_project, try_insert_project};
+use crate::db::{GdDBC, SqlxError};
+use crate::project::db_service::{select_project, try_delete_project, try_insert_project};
 use crate::project::types::{Project, ProjectCollector, ProjectSetter};
-use crate::types::{InsertResult, RtData, RtStatus};
+use crate::types::{DeleteResult, InsertResult, RtData, RtStatus};
 
 #[post("/set_project",data="<project_data>")]
 pub async fn set_project(
@@ -55,7 +55,7 @@ pub async fn get_project(
         Ok(v) => {
             dbg!("总共行数：",v.len());
             // do not make sure the type in here
-            let mut projects:Vec<_> = vec![];
+            let projects:Vec<_>;
             projects = v.iter().map(|row| Project::from_row(row).unwrap()).collect::<Vec<Project>>();
             dbg!("查询到{}个项目",projects.len());
             Ok(RtData{
@@ -69,6 +69,28 @@ pub async fn get_project(
         }
         Err(err) => {
             dbg!("查询所有项目出错了",err);
+            Err(Status::InternalServerError)
+        }
+    }
+}
+
+#[get("/delete_project?<project_id>")]
+pub async fn delete_project(
+    db:GdDBC,
+    project_id:String
+) -> Result<RtData<DeleteResult>,Status> {
+    let res = try_delete_project(db,project_id).await;
+    match res {
+        Ok(data) => {
+            Ok(RtData{
+                data,
+                msg:"delete project success".to_string(),
+                status:RtStatus::Success,
+                success:true
+            })
+        }
+        Err(err) => {
+            dbg!(err);
             Err(Status::InternalServerError)
         }
     }

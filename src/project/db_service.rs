@@ -4,8 +4,9 @@ use jsonwebtoken::get_current_timestamp;
 use sqlx::postgres::PgRow;
 use uuid::Uuid;
 use crate::db::{DbQueryResult, GdDBC, SqlxError};
+
 use crate::project::types::{ProjectSetter};
-use crate::types::InsertResult;
+use crate::types::{DeleteResult, InsertResult};
 use crate::utils::timestamp_to_date;
 
 pub async fn try_insert_project(
@@ -112,7 +113,51 @@ pub async fn select_project(
     LEFT JOIN public.user admin ON pa.user_id = admin.id AND pa.role = 0
     WHERE pa.user_id = $1;
     "#;
-dbg!(&sql);
+    dbg!(&sql);
     sqlx::query(sql).bind(user_id)
         .fetch_all(&mut *db).await
+}
+
+pub async fn try_delete_project(
+    mut db:GdDBC,
+    project_id:String,
+) -> DbQueryResult<DeleteResult> {
+    let pro_id = Uuid::from_str(project_id.as_str()).unwrap();
+
+    let delete_part =
+        "delete from public.participation part \
+        where part.project_id = $1".to_string();
+
+    match sqlx::query(&delete_part).bind(pro_id.clone()).fetch_one(&mut *db).await {
+        Ok(_) => {
+            delete_from_project(db, pro_id).await
+        }
+        Err(err) => {
+            if let SqlxError::RowNotFound = err {
+                return Ok(delete_from_project(db, pro_id).await?);
+            }
+            dbg!(&err);
+            Err(err)
+        }
+    }
+
+}
+
+async fn delete_from_project(
+    mut db:GdDBC,
+    pro_id:Uuid
+)-> DbQueryResult<DeleteResult>{
+    let delete_project = "delete from public.project pro where pro.id = $1".to_string();
+    match sqlx::query(&delete_project).bind(pro_id)
+        .fetch_one(&mut *db).await{
+        Ok(_) => {
+            Ok(DeleteResult::Success("delete project success".to_string()))
+        }
+        Err(err) => {
+            if let SqlxError::RowNotFound = err {
+                return Ok(DeleteResult::Success("delete project success".to_string()));
+            }
+            Err(err)
+        }
+    }
 }
