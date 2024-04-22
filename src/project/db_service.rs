@@ -1,11 +1,10 @@
-
 use std::str::FromStr;
 use jsonwebtoken::get_current_timestamp;
 use sqlx::postgres::PgRow;
 use uuid::Uuid;
 use crate::db::{DbQueryResult, GdDBC, SqlxError};
 
-use crate::project::types::{ProjectSetter};
+use crate::project::types::{AddPartners, ProjectSetter};
 use crate::types::{DeleteResult, InsertResult};
 use crate::utils::timestamp_to_date;
 
@@ -156,6 +155,32 @@ async fn delete_from_project(
         Err(err) => {
             if let SqlxError::RowNotFound = err {
                 return Ok(DeleteResult::Success("delete project success".to_string()));
+            }
+            Err(err)
+        }
+    }
+}
+
+pub async fn try_add_partners_to_project(
+    mut db:GdDBC,
+    partners:AddPartners
+) -> DbQueryResult<InsertResult> {
+    let pro_id = Uuid::from_str(partners.project_id.as_str()).unwrap() ;
+    let user_ids = partners.partners;
+    let user_ids:Vec<_> = user_ids.into_iter().map(|user_id|{
+        Uuid::from_str(user_id.as_str()).unwrap()
+    }).collect::<Vec<Uuid>>();
+
+    let sql = "INSERT INTO participation (user_id, project_id, role, star) \
+        SELECT user_id, $1 AS project_id, 1 AS role, 'f' AS star
+        FROM unnest($2::uuid[]) AS user_id".to_string();
+
+    match sqlx::query(&sql).bind(pro_id).bind(&user_ids)
+        .fetch_one(&mut *db).await {
+        Ok(_) => { Ok(InsertResult::Success("add partners success".to_string())) }
+        Err(err) => {
+            if let SqlxError::RowNotFound = err {
+                return Ok(InsertResult::Success("add partners success".to_string()))
             }
             Err(err)
         }

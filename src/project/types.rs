@@ -41,9 +41,6 @@ impl<'r> Responder<'r,'static> for RtData<ProjectCollector> {
     }
 }
 
-
-
-
 #[derive(Debug,Clone,Eq, PartialEq,Serialize,Deserialize,FromForm)]
 pub struct ProjectSetter {
     #[field(name="userId")]
@@ -62,3 +59,18 @@ pub struct ProjectSetter {
     pub last_update:Option<String>
 }
 
+
+#[derive(Debug,Serialize,Deserialize,Clone,FromRow,Eq, PartialEq)]
+pub struct WorkMate{
+    pub name:String,
+    pub position:String,
+    pub role:String,
+}
+
+#[derive(Debug,FromForm,Serialize,Deserialize,Eq, PartialEq,Clone)]
+pub struct AddPartners {
+    #[field(name="partners")]
+    pub partners:Vec<String>,
+    #[field(name="project_id")]
+    pub project_id:String
+}
