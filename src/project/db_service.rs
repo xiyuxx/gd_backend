@@ -28,6 +28,15 @@ pub async fn try_insert_project(
         pro_id = Uuid::new_v4().to_string();
         update_time = timestamp_to_date(get_current_timestamp());
         project_creator.id = Some(pro_id.clone());
+
+        let pro_seq_name = pro_id.replace("-","_") + "_work_item_id_seq";
+        let sql = format!(
+            "create SEQUENCE {}",pro_seq_name
+        );
+        if let Err(err) = sqlx::query(&sql).execute(&mut *db).await {
+            dbg!("create sequence fail");
+            dbg!(err);
+        }
     } else{
         pro_id = pro_c.id.unwrap();
         update_time = pro_c.last_update.unwrap();
