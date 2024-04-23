@@ -1,10 +1,11 @@
 use std::str::FromStr;
 use jsonwebtoken::get_current_timestamp;
+use sqlx::{FromRow};
 use sqlx::postgres::PgRow;
 use uuid::Uuid;
 use crate::db::{DbQueryResult, GdDBC, SqlxError};
 
-use crate::project::types::{AddPartners, ProjectSetter};
+use crate::project::types::{AddPartners, ProjectSetter, WorkMate, WorkMateCollector};
 use crate::types::{DeleteResult, InsertResult};
 use crate::utils::timestamp_to_date;
 
@@ -182,6 +183,49 @@ pub async fn try_add_partners_to_project(
             if let SqlxError::RowNotFound = err {
                 return Ok(InsertResult::Success("add partners success".to_string()))
             }
+            Err(err)
+        }
+    }
+}
+
+// get all partners in particular project
+pub async fn get_partners(
+    mut db:GdDBC,
+    project_id:String
+) -> DbQueryResult<WorkMateCollector> {
+
+    let pro_id = Uuid::from_str(project_id.as_str()).unwrap();
+    let sql = "
+    SELECT
+        u.name,
+        CASE
+            WHEN p.role = 0 THEN '管理员'
+            WHEN p.role = 1 THEN '普通成员'
+            ELSE '未知角色'
+        END AS role,
+        pos.name AS position
+    FROM
+        public.participation p
+    JOIN
+        public.user u ON p.user_id = u.id
+    LEFT JOIN
+        public.position pos ON p.position = pos.id
+    WHERE
+        p.project_id = $1;
+    ".to_string();
+    let work_mates:Vec<_>;
+    match sqlx::query(&sql).bind(pro_id)
+        .fetch_all(&mut *db).await {
+        Ok(v) => {
+            work_mates = v.iter().map(|row| {
+                WorkMate::from_row(row).unwrap()
+            }).collect::<Vec<WorkMate>>();
+            Ok(WorkMateCollector{
+                collector:work_mates
+            })
+        }
+        Err(err) => {
+            dbg!(&err);
             Err(err)
         }
     }

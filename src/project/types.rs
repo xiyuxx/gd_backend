@@ -26,7 +26,7 @@ pub struct Project{
 
 #[derive(Debug,Serialize,Deserialize,Eq, PartialEq,Clone)]
 pub struct ProjectCollector{
-    pub projects:Vec<Project>
+    pub collector:Vec<Project>
 }
 
 impl<'r> Responder<'r,'static> for RtData<ProjectCollector> {
@@ -63,9 +63,28 @@ pub struct ProjectSetter {
 #[derive(Debug,Serialize,Deserialize,Clone,FromRow,Eq, PartialEq)]
 pub struct WorkMate{
     pub name:String,
-    pub position:String,
+    #[sqlx(default)]
+    pub position:Option<String>,
     pub role:String,
 }
+
+#[derive(Debug,Serialize,Deserialize,Clone,FromRow,Eq, PartialEq)]
+pub struct WorkMateCollector{
+    pub collector:Vec<WorkMate>
+}
+
+impl<'r> Responder<'r,'static> for RtData<WorkMateCollector> {
+    fn respond_to(self, request: &'r Request<'_>) -> rocket::response::Result<'static> {
+        let data = self.to_string();
+        request.local_cache(||AuthCheck{
+            is_valid_token:true
+        });
+        Response::build()
+            .header(ContentType::JSON)
+            .sized_body(data.len(),Cursor::new(data)).ok()
+    }
+}
+
 
 #[derive(Debug,FromForm,Serialize,Deserialize,Eq, PartialEq,Clone)]
 pub struct AddPartners {
