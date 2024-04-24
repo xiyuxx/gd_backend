@@ -1,21 +1,22 @@
 
 use rocket::{get, post};
-use rocket::form::{Form};
+use rocket::form::Form;
 use rocket::http::Status;
 use sqlx::FromRow;
 use crate::db::{DbQueryResult, GdDBC, SqlxError};
+use crate::project;
 use crate::project::db_service::{get_partners, select_project, try_add_partners_to_project, try_delete_project, try_insert_project};
 use crate::project::types::{AddPartners, Project, ProjectCollector, ProjectSetter, WorkMateCollector};
-use crate::types::{DeleteResult, InsertResult, RtData, RtStatus};
+use crate::types::{DeleteResult, SingleEditResult, RtData, RtStatus};
 
 #[post("/set_project",data="<project_data>")]
 pub async fn set_project(
     db:GdDBC,
     project_data:Form<ProjectSetter>
-) -> Result<RtData<InsertResult>,Status>{
+) -> Result<RtData<SingleEditResult>,Status>{
     let res = try_insert_project(db,project_data.into_inner()).await;
 
-    match_insert_res(res,"create project success".to_string())
+    project::match_insert_res(res, "create project success".to_string())
 }
 
 #[get("/get_project?<user_id>")]
@@ -98,39 +99,9 @@ pub async fn get_participants(
 pub async fn add_workmate_to_project(
     db:GdDBC,
     partners: Form<AddPartners>
-)-> Result<RtData<InsertResult>,Status>{
+)-> Result<RtData<SingleEditResult>,Status>{
 
     let res = try_add_partners_to_project(db,partners.into_inner()).await;
-    match_insert_res(res,"add partners success".to_string())
+    project::match_insert_res(res, "add partners success".to_string())
 
-}
-
-fn match_insert_res(res:DbQueryResult<InsertResult>, msg:String) -> Result<RtData<InsertResult>,Status>{
-    match res{
-        Ok(adjust_res) => {
-            let success = true;
-            let status = RtStatus::Success;
-            let msg = String::from("");
-
-            Ok(RtData{
-                success,status,msg,data:adjust_res
-            })
-        }
-        Err(err) => {
-            match err {
-                SqlxError::RowNotFound => {
-                    Ok(RtData{
-                        success:true,
-                        status:RtStatus::Success,
-                        msg:String::from(""),
-                        data:InsertResult::Success(msg),
-                    })
-                }
-                _ => {
-                    dbg!(err);
-                    Err(Status::InternalServerError)
-                }
-            }
-        }
-    }
 }

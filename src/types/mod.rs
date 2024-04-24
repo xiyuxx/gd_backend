@@ -147,12 +147,13 @@ impl<'r> Responder<'r,'static> for RtData<LoginSuccessData> {
 
 
 #[derive(Debug,Serialize,Deserialize,Eq, PartialEq,Clone)]
-pub enum InsertResult{
+pub enum SingleEditResult {
     Exist(String),
     Success(String),
+    Fail(String)
 }
 
-impl<'r> Responder<'r,'static> for RtData<InsertResult> {
+impl<'r> Responder<'r,'static> for RtData<SingleEditResult> {
     fn respond_to(self, request: &'r Request<'_>) -> rocket::response::Result<'static> {
 
         let data = self.to_string();

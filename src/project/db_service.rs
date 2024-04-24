@@ -6,13 +6,13 @@ use uuid::Uuid;
 use crate::db::{DbQueryResult, GdDBC, SqlxError};
 
 use crate::project::types::{AddPartners, ProjectSetter, WorkMate, WorkMateCollector};
-use crate::types::{DeleteResult, InsertResult};
+use crate::types::{DeleteResult, SingleEditResult};
 use crate::utils::timestamp_to_date;
 
 pub async fn try_insert_project(
     mut db:GdDBC,
     mut project_creator: ProjectSetter
-) -> DbQueryResult<InsertResult> {
+) -> DbQueryResult<SingleEditResult> {
     let pro_c = project_creator.clone();
     let is_new = pro_c.id.is_none();
 
@@ -58,7 +58,7 @@ pub async fn try_insert_project(
             }
             // or it is update, just return
             else {
-                Ok(InsertResult::Exist("project adjust successfully".to_string()))
+                Ok(SingleEditResult::Exist("project adjust successfully".to_string()))
             }
         }
         Err(err) => {
@@ -74,7 +74,7 @@ pub async fn try_insert_project(
 pub async fn try_insert_on_participation(
     mut db:GdDBC,
     project_setter: ProjectSetter
-) -> DbQueryResult<InsertResult> {
+) -> DbQueryResult<SingleEditResult> {
     let user_id = project_setter.user_id;
     let pro_id = project_setter.id.unwrap();
 
@@ -87,12 +87,12 @@ pub async fn try_insert_on_participation(
         // check whether the insert on participation success
         Ok(_) => {
             dbg!("用户{}参与项目{}成功！",user_id,pro_id);
-            Ok(InsertResult::Success("participate project successfully".to_string()))
+            Ok(SingleEditResult::Success("participate project successfully".to_string()))
         }
         Err(err) => {
             if let SqlxError::RowNotFound = err {
                 dbg!("用户{}参与项目{}成功！",user_id,pro_id);
-                return Ok(InsertResult::Exist("participate project successfully".to_string()))
+                return Ok(SingleEditResult::Exist("participate project successfully".to_string()))
             }
             Err(err)
         }
@@ -174,7 +174,7 @@ async fn delete_from_project(
 pub async fn try_add_partners_to_project(
     mut db:GdDBC,
     partners:AddPartners
-) -> DbQueryResult<InsertResult> {
+) -> DbQueryResult<SingleEditResult> {
     let pro_id = Uuid::from_str(partners.project_id.as_str()).unwrap() ;
     let user_ids = partners.partners;
     let user_ids:Vec<_> = user_ids.into_iter().map(|user_id|{
@@ -187,10 +187,10 @@ pub async fn try_add_partners_to_project(
 
     match sqlx::query(&sql).bind(pro_id).bind(&user_ids)
         .fetch_one(&mut *db).await {
-        Ok(_) => { Ok(InsertResult::Success("add partners success".to_string())) }
+        Ok(_) => { Ok(SingleEditResult::Success("add partners success".to_string())) }
         Err(err) => {
             if let SqlxError::RowNotFound = err {
-                return Ok(InsertResult::Success("add partners success".to_string()))
+                return Ok(SingleEditResult::Success("add partners success".to_string()))
             }
             Err(err)
         }

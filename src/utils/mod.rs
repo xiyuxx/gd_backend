@@ -10,3 +10,9 @@ pub fn timestamp_to_date(timestamp:u64) -> String{
         (date.hour()+8)%24,date.minute(),date.second()
     )
 }
+
+pub fn get_work_item_seq(pro_id:String) -> String {
+    format!(
+        "{}" ,pro_id.replace("-","_")
+    ) + "_work_item_id_seq"
+}
