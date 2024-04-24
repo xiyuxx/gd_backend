@@ -20,9 +20,9 @@ pub struct WorkItemSetter {
     pub principal:Option<String>,
     // shall be converted to NaiveDateTime
     pub create_time:Option<String>,
-    #[field(name="father")]
     pub father_item: Option<i32>,
     pub priority: Option<i32>,
+    pub description:Option<String>
 }
 
 #[derive(Debug,Eq, PartialEq,Clone,Serialize,Deserialize,FromRow)]
@@ -44,6 +44,7 @@ pub struct WorkItemGetter {
     pub principal_name:Option<String>,
     #[sqlx(default)]
     pub principal_avatar:Option<String>,
+    pub description:String,
 }
 
 

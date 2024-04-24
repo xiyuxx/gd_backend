@@ -3,7 +3,7 @@ use rocket::{get, post};
 use rocket::form::Form;
 use rocket::http::Status;
 use sqlx::FromRow;
-use crate::db::{DbQueryResult, GdDBC, SqlxError};
+use crate::db::{GdDBC};
 use crate::project;
 use crate::project::db_service::{get_partners, select_project, try_add_partners_to_project, try_delete_project, try_insert_project};
 use crate::project::types::{AddPartners, Project, ProjectCollector, ProjectSetter, WorkMateCollector};

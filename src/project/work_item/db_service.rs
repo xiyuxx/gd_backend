@@ -1,6 +1,6 @@
 use std::str::FromStr;
 use jsonwebtoken::get_current_timestamp;
-use sqlx::{FromRow, Row};
+use sqlx::{FromRow};
 use uuid::Uuid;
 use crate::db::{DbQueryResult, GdDBC, SqlxError};
 use crate::project::work_item::types::{WorkItemCollector, WorkItemGetter, WorkItemSetter};
@@ -20,11 +20,15 @@ pub async fn try_set_work_item(
     let principal = work_item.principal.as_ref().map(|s| Uuid::parse_str(&s).unwrap());
     let father_item = work_item.father_item;
     let priority = work_item.priority;
-
+    let desc_final;
+    if let Some(desc) = work_item.description {
+        desc_final = desc;
+    }else {
+        desc_final = "-".to_string();
+    }
     if is_new {
         // if is insert operation, change the sequence
         let seq = get_work_item_seq(work_item.project_id);
-        dbg!(&seq);
         let use_seq_sql = format!("alter table public.work_item alter column id \
         set default NEXTVAL('{seq}')");
 
@@ -33,10 +37,10 @@ pub async fn try_set_work_item(
                 let create_time = timestamp_to_date(get_current_timestamp());
                 let sql = format!(
                     "insert into public.work_item (name, type, status, principal, create_time, \
-                    father_item, priority, project_id) values ($1,$2,$3,$4,'{create_time}',$5,$6,$7)"
+                    father_item, priority, project_id, description) values ($1,$2,$3,$4,'{create_time}',$5,$6,$7,$8)"
                 );
                 match sqlx::query(&sql).bind(name).bind(item_type).bind(status).bind(principal)
-                    .bind(father_item).bind(priority).bind(pro_id).execute(&mut *db).await {
+                    .bind(father_item).bind(priority).bind(pro_id).bind(desc_final).execute(&mut *db).await {
                     Ok(_) => { Ok(SingleEditResult::Success("insert work item success".to_string())) }
                     Err(err) => {
                         if let SqlxError::RowNotFound = err {
@@ -57,7 +61,7 @@ pub async fn try_set_work_item(
         let id = work_item.id.unwrap();
         let sql = format!(
             "update public.work_item set name = '{name}', type = $1, status = $2, principal = $3, \
-            father_item = $4, priority = $5 where id = '{id}' and project_id = '{pro_id}'"
+            father_item = $4, priority = $5, description = '{desc_final}' where id = '{id}' and project_id = '{pro_id}'"
         );
         return match sqlx::query(&sql).bind(item_type).bind(status).bind(principal).bind(father_item)
             .bind(priority).execute(&mut *db).await {
@@ -79,9 +83,9 @@ pub async fn try_get_all_items(
 ) -> DbQueryResult<WorkItemCollector> {
     let pro_id = Uuid::from_str(project_id.as_str()).unwrap();
 
-    let mut item_collector:Vec<_> = vec![];
+    let item_collector:Vec<_>;
     let sql = "select wi.id, wi.name, wi.type, \
-    wi.status, wi.create_time, wi.father_item, wi.priority, \
+    wi.status, wi.create_time, wi.father_item, wi.priority, wi.desc \
     u.name principal_name, u.avatar principal_avatar \
     from public.work_item wi \
     left join public.user u on wi.principal = u.id \
