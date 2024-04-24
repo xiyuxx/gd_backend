@@ -1,14 +1,15 @@
 use std::str::FromStr;
 use jsonwebtoken::get_current_timestamp;
+use sqlx::{FromRow, Row};
 use uuid::Uuid;
 use crate::db::{DbQueryResult, GdDBC, SqlxError};
-use crate::project::work_item::types::WorkItem;
+use crate::project::work_item::types::{WorkItemCollector, WorkItemGetter, WorkItemSetter};
 use crate::types::SingleEditResult;
 use crate::utils::{get_work_item_seq, timestamp_to_date};
 
 pub async fn try_set_work_item(
     mut db: GdDBC,
-    work_item:WorkItem
+    work_item:WorkItemSetter
 ) -> DbQueryResult<SingleEditResult> {
     let is_new = work_item.id.is_none();
 
@@ -70,6 +71,41 @@ pub async fn try_set_work_item(
             }
         }
     }
+}
 
+pub async fn try_get_all_items(
+    mut db:GdDBC,
+    project_id: String
+) -> DbQueryResult<WorkItemCollector> {
+    let pro_id = Uuid::from_str(project_id.as_str()).unwrap();
 
+    let mut item_collector:Vec<_> = vec![];
+    let sql = "select wi.id, wi.name, wi.type, \
+    wi.status, wi.create_time, wi.father_item, wi.priority, \
+    u.name principal_name, u.avatar principal_avatar \
+    from public.work_item wi \
+    left join public.user u on wi.principal = u.id \
+    where wi.project_id = $1".to_string();
+
+    match sqlx::query(&sql).bind(pro_id)
+        .fetch_all(&mut *db).await {
+        Ok(v) => {
+            dbg!("开始类型转化");
+
+            item_collector = v.iter().map(|row| {
+                dbg!("转换中");
+                let work_item: WorkItemGetter = WorkItemGetter::from_row(row).unwrap();
+                dbg!(&work_item);
+                work_item
+            }).collect::<Vec<WorkItemGetter>>();
+            dbg!("whats wrong " ,item_collector.len());
+            Ok(WorkItemCollector{
+                collector:item_collector
+            })
+        }
+        Err(err) => {
+            dbg!(&err);
+            Err(err)
+        }
+    }
 }
