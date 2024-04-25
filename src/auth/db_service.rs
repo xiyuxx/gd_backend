@@ -1,7 +1,7 @@
 
 use std::str::FromStr;
 use jsonwebtoken::get_current_timestamp;
-use sqlx::postgres::PgRow;
+use sqlx::postgres::{ PgRow};
 use uuid::Uuid;
 use crate::auth::{MoreUser, RegisterResult};
 use crate::db::{DbQueryResult, GdDBC, SqlxError};
@@ -68,23 +68,35 @@ pub async fn try_register_user(
             Ok(res)
         }
         MoreUser::Create(creator) => {
-            let (name,pwd,phone,organization) = creator.into();
+            let (name,pwd,phone,_organization) = creator.clone().into();
             let phone_c = phone.clone();
             sql = format!("select * from public.user where phone = '{phone_c}' limit 1");
             dbg!("检测用户是否存在");
             let res = if let Err(db_err) = sqlx::query(&sql).fetch_one(&mut *db).await{
                 match db_err {
                     SqlxError::RowNotFound =>{
-                        dbg!("用户不存在");
-                        let pwd = format!("{:x}",md5::compute(pwd));
-                        let create_time = timestamp_to_date(get_current_timestamp());
-                        let insert_key = "id,name,pwd,phone,create_time,organization".to_string();
+                        dbg!("用户未注册");
 
-                        let insert_values =
-                            format!("'{id}','{name}','{pwd}','{phone}','{create_time}','{organization}'");
-                        sql = format!("insert into public.user ({insert_key}) values ({insert_values})");
-                        register_user(db,sql,id,name).await?
+                        dbg!("开始注册公司");
+                        let org_id = Uuid::new_v4();
+                        let org = creator.organization.clone();
+                        match sqlx::query(
+                            "insert into public.organization values($1,$2)"
+                        ).bind(org_id).bind(org).execute(&mut *db).await {
+                            Ok(_) => {
+                                dbg!("组织添加成功！开始注册账号");
+                                let org_id_str =  org_id.to_string();
+                                let pwd = format!("{:x}",md5::compute(pwd));
+                                let create_time = timestamp_to_date(get_current_timestamp());
+                                let insert_key = "id,name,pwd,phone,create_time,organization".to_string();
 
+                                let insert_values =
+                                    format!("'{id}','{name}','{pwd}','{phone}','{create_time}','{org_id_str}'");
+                                sql = format!("insert into public.user ({insert_key}) values ({insert_values})");
+                                register_user(db,sql,id,name).await?
+                            }
+                            Err(err) => {dbg!(&err); return Err(err)}
+                        }
                     }
                     _ => {
                         dbg!("weird problem happened");
