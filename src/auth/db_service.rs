@@ -2,6 +2,7 @@
 use std::str::FromStr;
 use jsonwebtoken::get_current_timestamp;
 use sqlx::postgres::{ PgRow};
+use sqlx::Row;
 use uuid::Uuid;
 use crate::auth::{MoreUser, RegisterResult};
 use crate::db::{DbQueryResult, GdDBC, SqlxError};
@@ -46,12 +47,27 @@ pub async fn try_register_user(
                         match sqlx::query(&query)
                             .bind(id).bind(name.clone()).bind(pwd).bind(phone).bind(gender)
                             .bind(email).bind(test).bind(work_id)
-                            .fetch_one(&mut *db).await {
-                            Ok(_) => RegisterResult::Success(SignData { name, id: id.to_string()}),
-                            Err(err) => {
-                                if let SqlxError::RowNotFound = err {
-                                    return Ok(RegisterResult::Success(SignData { name, id: id.to_string() }));
+                            .execute(&mut *db).await {
+                            Ok(_) => {
+                                let mut org_id="".to_string();
+                                let mut org_name="".to_string();
+                                if let Ok(v) = sqlx::query(
+                                    "select u.organization org_id, org.name org_name from \
+                                    public.user u left join public.organization org \
+                                    on u.organization = org.id where u.id = $1 "
+                                ).bind(id).fetch_one(&mut *db).await {
+                                    org_id = v.get(0);
+                                    org_name = v.get(1);
                                 }
+                                RegisterResult::Success(SignData {
+                                    name,
+                                    id: id.to_string(),
+                                    org_id,
+                                    org_name
+                                })
+                            },
+                            Err(err) => {
+                                dbg!(&err);
                                 return Err(err);
                             }
                         }
@@ -80,6 +96,7 @@ pub async fn try_register_user(
                         dbg!("开始注册公司");
                         let org_id = Uuid::new_v4();
                         let org = creator.organization.clone();
+                        let org_c = org.clone();
                         match sqlx::query(
                             "insert into public.organization values($1,$2)"
                         ).bind(org_id).bind(org).execute(&mut *db).await {
@@ -93,7 +110,7 @@ pub async fn try_register_user(
                                 let insert_values =
                                     format!("'{id}','{name}','{pwd}','{phone}','{create_time}','{org_id_str}'");
                                 sql = format!("insert into public.user ({insert_key}) values ({insert_values})");
-                                register_user(db,sql,id,name).await?
+                                register_user(db,sql,id,name,org_id,org_c).await?
                             }
                             Err(err) => {dbg!(&err); return Err(err)}
                         }
@@ -117,19 +134,30 @@ async fn register_user(
     mut db:GdDBC,
     sql:String,
     id:Uuid,
-    name:String
+    name:String,
+    org_id:Uuid,
+    org_name:String
 ) -> DbQueryResult<RegisterResult> {
     dbg!(&sql);
 
     return match sqlx::query(&sql).fetch_one(&mut *db).await {
         Ok(_) => {
             dbg!("insert user success");
-            Ok(RegisterResult::Success(SignData { name, id: id.to_string()}))
+            Ok(RegisterResult::Success(SignData {
+                name,
+                id: id.to_string(),
+                org_id: org_id.to_string(),
+                org_name,
+            }))
         },
         Err(err) => {
-            dbg!("执行插入后报错");
             if let SqlxError::RowNotFound = err {
-                return Ok(RegisterResult::Success(SignData{name, id: id.to_string()}))
+                return Ok(RegisterResult::Success(SignData{
+                    name,
+                    id: id.to_string(),
+                    org_id:org_id.to_string(),
+                    org_name
+                }))
             }
             Err(err)
         }
@@ -148,7 +176,8 @@ pub async fn get_user_msg(
     
     let pwd = format!("{:x}",md5::compute(pwd));
     let sql = format!(
-        "select * from public.user where pwd = '{pwd}' and {condition}"
+        "select u.*,org.name org_name from public.user u left join public.organization org \
+         on u.organization = org.id where pwd = '{pwd}' and {condition}"
     );
     
     dbg!(&sql);

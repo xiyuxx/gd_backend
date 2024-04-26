@@ -1,9 +1,7 @@
 use rocket::{post, State};
 use rocket::form::Form;
 use rocket::http::Status;
-use sqlx::{Error, FromRow};
-use sqlx::postgres::PgRow;
-use uuid::{Uuid};
+use sqlx::{ FromRow};
 use crate::auth::{AddUser, LoginData, MoreUser, RegisterResult, RegisterUser};
 use crate::auth::db_service::{get_user_msg, try_register_user};
 use crate::auth::validate::{validate_login_data, validate_register_data, ValidateData};

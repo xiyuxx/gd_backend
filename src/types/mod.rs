@@ -57,6 +57,8 @@ pub enum DefaultData{
 pub struct SignData {
     pub name:String,
     pub id:String,
+    pub org_id:String,
+    pub org_name:String
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -117,6 +119,7 @@ pub struct LoginSuccessData{
     pub email:Option<String>,
     #[sqlx(try_from = "Uuid")]
     pub organization:String,
+    pub org_name:String,
     #[sqlx(default)]
     pub work_id:Option<String>,
     pub create_time:NaiveDateTime,
