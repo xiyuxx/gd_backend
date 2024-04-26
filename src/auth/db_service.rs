@@ -40,15 +40,16 @@ pub async fn try_register_user(
                         let email = email.as_ref().map(String::as_str);
                         let gender = gender.as_ref().map(String::as_str);
                         let work_id = work_id.as_ref().map(String::as_str);
+                        let role = 0;
                         dbg!("尝试插入用户");
                         let query = format!("
                         INSERT INTO public.user (id, name, pwd, phone,
-                        gender, email,organization, work_id, create_time)
-                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, '{create_time}')
+                        gender, email,organization, work_id, create_time, role)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, '{create_time}',$9)
                         ");
                         match sqlx::query(&query)
                             .bind(id).bind(name.clone()).bind(pwd).bind(phone).bind(gender)
-                            .bind(email).bind(test).bind(work_id)
+                            .bind(email).bind(test).bind(work_id).bind(role)
                             .execute(&mut *db).await {
                             Ok(_) => {
                                 let mut org_id="".to_string();
@@ -106,11 +107,12 @@ pub async fn try_register_user(
                                 dbg!("组织添加成功！开始注册账号");
                                 let org_id_str =  org_id.to_string();
                                 let pwd = format!("{:x}",md5::compute(pwd));
+                                let role = 1;
                                 let create_time = timestamp_to_date(get_current_timestamp());
-                                let insert_key = "id,name,pwd,phone,create_time,organization".to_string();
+                                let insert_key = "id,name,pwd,phone,create_time,organization,role".to_string();
 
                                 let insert_values =
-                                    format!("'{id}','{name}','{pwd}','{phone}','{create_time}','{org_id_str}'");
+                                    format!("'{id}','{name}','{pwd}','{phone}','{create_time}','{org_id_str}','{role}'");
                                 sql = format!("insert into public.user ({insert_key}) values ({insert_values})");
                                 register_user(db,sql,id,name,org_id,org_c).await?
                             }
