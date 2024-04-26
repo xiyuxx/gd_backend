@@ -2,11 +2,11 @@ use rocket::{post, State};
 use rocket::form::Form;
 use rocket::http::Status;
 use sqlx::{ FromRow};
-use crate::auth::{AddUser, LoginData, MoreUser, RegisterResult, RegisterUser};
-use crate::auth::db_service::{get_user_msg, try_register_user};
+use crate::auth::{AddUser, LoginData, MoreUser, RegisterResult, RegisterUser, User};
+use crate::auth::db_service::{get_user_msg, try_register_user,edit_user};
 use crate::auth::validate::{validate_login_data, validate_register_data, ValidateData};
 use crate::db::{DbQueryResult, GdDBC, SqlxError};
-use crate::types::{LoginSuccessData, RtData, RtStatus};
+use crate::types::{LoginSuccessData, RtData, RtStatus, SingleEditResult};
 
 #[post("/register/add",data="<add_data>")]
 pub async fn add_user(
@@ -36,8 +36,6 @@ pub async fn create_user(
     let res =
         try_register_user(db,MoreUser::Create(register_data.into_inner())).await;
     handle_register_res(res)
-
-
 }
 
 fn handle_register_res(res:DbQueryResult<RegisterResult>) -> Result<RtData<RegisterResult>,Status>{
@@ -118,4 +116,28 @@ pub async fn login(
         status: RtStatus::Success,
         data:user_msg,
     })
+}
+
+#[post("/edit",data="<user_data>")]
+pub async fn edit(
+    db:GdDBC,
+    validator:&State<ValidateData>,
+    user_data:Form<User>
+) -> Result<RtData<SingleEditResult>,Status> {
+
+    let res = edit_user(user_data.into_inner(),db,validator).await;
+    match res {
+        Ok(data) => {
+            Ok(RtData{
+                data,
+                msg: "".to_string(),
+                success: true,
+                status: RtStatus::Success,
+            })
+        }
+        Err(_) => {
+            Err(Status::InternalServerError)
+        }
+    }
+
 }

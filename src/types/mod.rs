@@ -61,6 +61,7 @@ pub struct SignData {
     pub org_name:String
 }
 
+
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct UserMsg {
     pub id: String,

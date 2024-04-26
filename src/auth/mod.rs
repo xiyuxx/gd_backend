@@ -108,6 +108,37 @@ pub struct LoginData{
     pwd:String,
 }
 
+#[derive(Debug,Serialize,Deserialize,Clone,Eq,PartialEq,FromForm)]
+pub struct User{
+    #[field(name="id")]
+    id:String,
+    #[field(name="name")]
+    name:Option<String>,
+    #[field(name="pwd")]
+    pwd:Option<String>,
+    #[field(name="phone")]
+    phone:Option<String>,
+    #[field(name="gender")]
+    gender:Option<String>,
+    #[field(name="email")]
+    email:Option<String>,
+    #[field(name="avatar")]
+    avatar:Option<String>,
+    #[field(name="background")]
+    background:Option<String>,
+    #[field(name="work_id")]
+    work_id:Option<String>,
+}
+
+impl Into<(Option<String>,Option<String>,Option<String>,Option<String>,
+           Option<String>,Option<String>,Option<String>,Option<String>)> for User{
+    fn into(self) -> (Option<String>,Option<String>, Option<String>, Option<String>,
+                      Option<String>, Option<String>, Option<String>, Option<String>) {
+        (self.name,self.pwd,self.phone,self.gender,
+         self.email,self.avatar,self.background,self.work_id)
+    }
+}
+
 
 
 

@@ -1,13 +1,15 @@
 
 use std::str::FromStr;
 use jsonwebtoken::get_current_timestamp;
-use sqlx::postgres::{ PgRow};
-use sqlx::Row;
+use rocket::State;
+use sqlx::postgres::{PgRow};
+use sqlx::{Row};
 use uuid::Uuid;
-use crate::auth::{MoreUser, RegisterResult};
+use crate::auth::{MoreUser, RegisterResult, User};
+use crate::auth::validate::ValidateData;
 use crate::db::{DbQueryResult, GdDBC, SqlxError};
 
-use crate::types::SignData;
+use crate::types::{SignData, SingleEditResult};
 use crate::utils::timestamp_to_date;
 
 pub async fn try_register_user(
@@ -183,5 +185,61 @@ pub async fn get_user_msg(
     dbg!(&sql);
     
     sqlx::query(&sql).fetch_one(&mut *db).await
+}
+
+pub async fn edit_user(
+    user_data:User,
+    mut db:GdDBC,
+    validator:&State<ValidateData>
+)-> DbQueryResult<SingleEditResult> {
+    let id = Uuid::from_str(user_data.id.as_str()).unwrap();
+    let (name,mut pwd,phone,gender,
+        email,avatar,background,work_id)
+        = user_data.into();
+
+
+    let mut sql = "update public.user set ".to_string();
+
+    if name.is_some() && validator.validate_name(&name.clone().unwrap()){
+        sql += "name = $1,";
+    }
+    if pwd.is_some(){
+        let pwd_md5 = format!("{:x}",md5::compute(pwd.clone().unwrap()));
+        pwd.replace(pwd_md5);
+        sql += "pwd = $2,";
+    }
+    if phone.is_some() && validator.validate_phone(&phone.clone().unwrap()){
+        sql += "phone = $3,";
+    }
+    if gender.is_some(){sql += "gender = $4,"}
+    if email.is_some() && validator.validate_email(&email.clone().unwrap()){
+        sql += "email = $5,";
+    }
+    if avatar.is_some(){sql += "avatar = $6,"}
+    if background.is_some(){sql += "background = $7,"}
+    if work_id.is_some(){sql += "work_id = $8,"}
+
+    let name = name.as_ref().map(String::as_str);
+    let pwd = pwd.as_ref().map(String::as_str);
+    let phone = phone.as_ref().map(String::as_str);
+    let gender = gender.as_ref().map(String::as_str);
+    let email = email.as_ref().map(String::as_str);
+    let avatar = avatar.as_ref().map(String::as_str);
+    let background = background.as_ref().map(String::as_str);
+    let work_id = work_id.as_ref().map(String::as_str);
+
+    if sql.ends_with(',') {sql = sql[..sql.len()-1].to_string()}
+    sql = sql + " where id = $9";
+    dbg!(&sql);
+    return match sqlx::query(&sql).bind(name).bind(pwd).bind(phone).bind(gender)
+        .bind(email).bind(avatar).bind(background).bind(work_id).bind(id).execute(&mut *db).await {
+        Ok(_) => {
+            Ok(SingleEditResult::Success("更新用户信息成功".to_string()))
+        }
+        Err(err) => {
+            dbg!(&err);
+            Err(err)
+        }
+    }
 }
 
