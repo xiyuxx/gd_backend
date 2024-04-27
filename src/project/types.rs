@@ -59,6 +59,16 @@ pub struct ProjectSetter {
     pub last_update:Option<String>
 }
 
+#[derive(Debug,Serialize,Deserialize,FromForm,Eq, PartialEq)]
+pub struct ProjectStar{
+    #[field(name="userId")]
+    pub user_id:String,
+    #[field(name="id")]
+    pub pro_id:String,
+    #[field(name="star")]
+    pub star:bool
+}
+
 
 #[derive(Debug,Serialize,Deserialize,Clone,FromRow,Eq, PartialEq)]
 pub struct WorkMate{
