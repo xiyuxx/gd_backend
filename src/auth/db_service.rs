@@ -3,9 +3,9 @@ use std::str::FromStr;
 use jsonwebtoken::get_current_timestamp;
 use rocket::State;
 use sqlx::postgres::{PgRow};
-use sqlx::{Row};
+use sqlx::{ FromRow, Row};
 use uuid::Uuid;
-use crate::auth::{MoreUser, RegisterResult, User};
+use crate::auth::{MoreUser, RegisterResult, User, UserCollector, UserGetter};
 use crate::auth::validate::ValidateData;
 use crate::db::{DbQueryResult, GdDBC, SqlxError};
 
@@ -40,7 +40,7 @@ pub async fn try_register_user(
                         let email = email.as_ref().map(String::as_str);
                         let gender = gender.as_ref().map(String::as_str);
                         let work_id = work_id.as_ref().map(String::as_str);
-                        let role = 0;
+                        let role = 1;
                         dbg!("尝试插入用户");
                         let query = format!("
                         INSERT INTO public.user (id, name, pwd, phone,
@@ -107,7 +107,7 @@ pub async fn try_register_user(
                                 dbg!("组织添加成功！开始注册账号");
                                 let org_id_str =  org_id.to_string();
                                 let pwd = format!("{:x}",md5::compute(pwd));
-                                let role = 1;
+                                let role = 0;
                                 let create_time = timestamp_to_date(get_current_timestamp());
                                 let insert_key = "id,name,pwd,phone,create_time,organization,role".to_string();
 
@@ -237,6 +237,26 @@ pub async fn edit_user(
         .bind(email).bind(avatar).bind(background).bind(work_id).bind(id).execute(&mut *db).await {
         Ok(_) => {
             Ok(SingleEditResult::Success("更新用户信息成功".to_string()))
+        }
+        Err(err) => {
+            dbg!(&err);
+            Err(err)
+        }
+    }
+}
+
+pub async fn select_partners(org_id:String,mut db:GdDBC) -> DbQueryResult<UserCollector> {
+    let sql = "select * from public.user where organization = $1";
+    let partners:Vec<_>;
+    return match sqlx::query(sql).bind(org_id).fetch_all(&mut *db).await {
+        Ok(v) => {
+            partners = v.iter().map(|user| {
+                UserGetter::from_row(user).unwrap()
+            }).collect();
+
+            Ok(UserCollector{
+                collector: partners,
+            })
         }
         Err(err) => {
             dbg!(&err);
