@@ -1,9 +1,9 @@
-use rocket::{post, State};
+use rocket::{post,get, State};
 use rocket::form::Form;
 use rocket::http::Status;
 use sqlx::{ FromRow};
-use crate::auth::{AddUser, LoginData, MoreUser, RegisterResult, RegisterUser, User};
-use crate::auth::db_service::{get_user_msg, try_register_user,edit_user};
+use crate::auth::{AddUser, LoginData, MoreUser, RegisterResult, RegisterUser, User, UserCollector};
+use crate::auth::db_service::{get_user_msg, try_register_user, edit_user, select_partners};
 use crate::auth::validate::{validate_login_data, validate_register_data, ValidateData};
 use crate::db::{DbQueryResult, GdDBC, SqlxError};
 use crate::types::{LoginSuccessData, RtData, RtStatus, SingleEditResult};
@@ -140,4 +140,25 @@ pub async fn edit(
         }
     }
 
+}
+
+#[get("/get_partners?<org_id>")]
+pub async fn get_all_partners(
+    db:GdDBC,
+    org_id:String
+) ->Result<RtData<UserCollector>,Status> {
+
+    return match select_partners(org_id,db).await {
+        Ok(data) => {
+            Ok(RtData{
+                data,
+                msg: "".to_string(),
+                success: true,
+                status: RtStatus::Success,
+            })
+        }
+        Err(_) => {
+            Err(Status::InternalServerError)
+        }
+    }
 }

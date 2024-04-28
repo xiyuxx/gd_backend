@@ -5,11 +5,14 @@ pub mod validate;
 pub mod route;
 
 
+use uuid::Uuid;
+
 use std::io::Cursor;
 use rocket::{ FromForm, Request, Response};
 use rocket::http::{ContentType};
 use rocket::response::Responder;
 use serde::{Deserialize, Serialize};
+use sqlx::FromRow;
 use crate::auth::token::set_token;
 use crate::types::{RtData, SignData};
 
@@ -139,6 +142,46 @@ impl Into<(Option<String>,Option<String>,Option<String>,Option<String>,
     }
 }
 
+#[derive(Debug,Serialize,Deserialize,Clone,Eq,PartialEq,FromRow)]
+pub struct UserGetter {
+    #[sqlx(try_from="Uuid")]
+    pub id:String,
+    pub name:String,
+    #[sqlx(default)]
+    pub phone:Option<String>,
+    #[sqlx(default)]
+    pub gender:Option<String>,
+    #[sqlx(default)]
+    pub email:Option<String>,
+    #[sqlx(default)]
+    pub work_id:Option<String>,
+    #[sqlx(default)]
+    pub avatar:Option<String>,
+    #[sqlx(default)]
+    pub background:Option<String>,
+    #[sqlx(default)]
+    pub create_time:Option<String>,
+    #[sqlx(default)]
+    pub role:Option<i16>,
+    // organization_id no need to be passed
+}
+
+#[derive(Debug,Serialize,Deserialize,Clone,Eq,PartialEq)]
+pub struct UserCollector{
+    pub collector:Vec<UserGetter>
+}
+
+impl<'r> Responder<'r,'static> for RtData<UserCollector> {
+    fn respond_to(self, request: &'r Request<'_>) -> rocket::response::Result<'static> {
+        let data = self.to_string();
+        request.local_cache(||AuthCheck{
+            is_valid_token:true
+        });
+        Response::build()
+            .header(ContentType::JSON)
+            .sized_body(data.len(),Cursor::new(data)).ok()
+    }
+}
 
 
 

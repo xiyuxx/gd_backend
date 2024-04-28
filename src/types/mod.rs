@@ -127,7 +127,9 @@ pub struct LoginSuccessData{
     #[sqlx(default)]
     pub avatar:Option<String>,
     #[sqlx(default)]
-    pub background:Option<String>
+    pub background:Option<String>,
+    #[sqlx(default)]
+    pub role:i16
 }
 
 impl<'r> Responder<'r,'static> for RtData<LoginSuccessData> {

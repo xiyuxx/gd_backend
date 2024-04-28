@@ -5,3 +5,6 @@ pub mod auth;
 pub mod utils;
 pub mod state;
 pub mod project;
+pub mod wiki;
+
+pub mod test_hub;
