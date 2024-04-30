@@ -4,8 +4,8 @@ use sqlx::{FromRow};
 use uuid::Uuid;
 use crate::db::{DbQueryResult, GdDBC, SqlxError};
 use crate::project::work_item::types::{WorkItemCollector, WorkItemGetter, WorkItemSetter};
-use crate::types::SingleEditResult;
-use crate::utils::{get_work_item_seq, timestamp_to_date};
+use crate::types::{ObjectTypes, SingleEditResult};
+use crate::utils::{ get_sequence_name, timestamp_to_date};
 
 pub async fn try_set_work_item(
     mut db: GdDBC,
@@ -28,7 +28,7 @@ pub async fn try_set_work_item(
     }
     if is_new {
         // if is insert operation, change the sequence
-        let seq = get_work_item_seq(work_item.project_id);
+        let seq = get_sequence_name(ObjectTypes::PROJECT, work_item.project_id);
         let use_seq_sql = format!("alter table public.work_item alter column id \
         set default NEXTVAL('{seq}')");
 
@@ -85,12 +85,12 @@ pub async fn try_get_all_items(
 
     let item_collector:Vec<_>;
     let sql = "select wi.id, wi.name, wi.type, \
-    wi.status, wi.create_time, wi.father_item, wi.priority, wi.desc \
+    wi.status, wi.create_time, wi.father_item, wi.priority, wi.description, \
     u.name principal_name, u.avatar principal_avatar \
     from public.work_item wi \
     left join public.user u on wi.principal = u.id \
     where wi.project_id = $1".to_string();
-
+    dbg!(&sql);
     match sqlx::query(&sql).bind(pro_id)
         .fetch_all(&mut *db).await {
         Ok(v) => {

@@ -2,12 +2,12 @@ use rocket::form::Form;
 use rocket::http::Status;
 use rocket::{get, post};
 use crate::db::{ GdDBC};
-use crate::project::match_insert_res;
+use crate::utils::match_insert_res;
 use crate::project::work_item::db_service::{try_get_all_items, try_set_work_item};
 use crate::project::work_item::types::{ WorkItemCollector, WorkItemSetter};
 use crate::types::{SingleEditResult, RtData, RtStatus};
 
-#[post("/add_work_item",data="<work_item>")]
+#[post("/set_work_item",data="<work_item>")]
 pub async fn set_item(
     gd:GdDBC,
     work_item:Form<WorkItemSetter>
