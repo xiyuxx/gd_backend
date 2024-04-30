@@ -2,22 +2,21 @@ use std::str::FromStr;
 use rocket::{get, post};
 use rocket::form::Form;
 use rocket::http::Status;
-use sqlx::{ FromRow};
+use sqlx::FromRow;
 use uuid::Uuid;
 use crate::db::{GdDBC, SqlxError};
-use crate::project;
-use crate::project::db_service::{get_partners, select_project, try_add_partners_to_project, try_delete_project, try_insert_project};
-use crate::project::types::{AddPartners, Project, ProjectCollector, ProjectSetter, ProjectStar, WorkMateCollector};
-use crate::types::{DeleteResult, SingleEditResult, RtData, RtStatus};
+use crate::{utils};
+use crate::project::db_service::{get_partners, select_project, try_add_partners_to_project, try_delete_project, try_set_project};
+use crate::types::{AddPartners, DeleteResult, Project, ProjectCollector, ProjectSetter, ProjectStar, RtData, RtStatus, SingleEditResult, WorkMateCollector};
 
 #[post("/set_project",data="<project_data>")]
 pub async fn set_project(
     db:GdDBC,
     project_data:Form<ProjectSetter>
 ) -> Result<RtData<SingleEditResult>,Status>{
-    let res = try_insert_project(db,project_data.into_inner()).await;
+    let res = try_set_project(db, project_data.into_inner()).await;
 
-    project::match_insert_res(res, "create project success".to_string())
+    utils::match_insert_res(res, "create project success".to_string())
 }
 
 #[get("/get_project?<user_id>")]
@@ -103,7 +102,7 @@ pub async fn add_workmate_to_project(
 )-> Result<RtData<SingleEditResult>,Status>{
 
     let res = try_add_partners_to_project(db,partners.into_inner()).await;
-    project::match_insert_res(res, "add partners success".to_string())
+    utils::match_insert_res(res, "add partners success".to_string())
 
 }
 

@@ -1,15 +1,15 @@
 use std::str::FromStr;
 use jsonwebtoken::get_current_timestamp;
-use sqlx::{FromRow};
+use sqlx::FromRow;
 use sqlx::postgres::PgRow;
 use uuid::Uuid;
 use crate::db::{DbQueryResult, GdDBC, SqlxError};
 
-use crate::project::types::{AddPartners, ProjectSetter, WorkMate, WorkMateCollector};
-use crate::types::{DeleteResult, SingleEditResult};
-use crate::utils::timestamp_to_date;
+use crate::types::{ObjectTypes, ProjectSetter};
+use crate::types::{AddPartners, DeleteResult, SingleEditResult, WorkMate, WorkMateCollector};
+use crate::utils::{get_sequence_name, timestamp_to_date};
 
-pub async fn try_insert_project(
+pub async fn try_set_project(
     mut db:GdDBC,
     mut project_creator: ProjectSetter
 ) -> DbQueryResult<SingleEditResult> {
@@ -29,10 +29,12 @@ pub async fn try_insert_project(
         update_time = timestamp_to_date(get_current_timestamp());
         project_creator.id = Some(pro_id.clone());
 
-        let pro_seq_name = pro_id.replace("-","_") + "_work_item_id_seq";
+        let pro_seq_name =
+            get_sequence_name(ObjectTypes::PROJECT, pro_id.clone());
         let sql = format!(
             "create SEQUENCE {}",pro_seq_name
         );
+        dbg!(&sql);
         if let Err(err) = sqlx::query(&sql).execute(&mut *db).await {
             dbg!("create sequence fail");
             dbg!(err);
@@ -68,7 +70,6 @@ pub async fn try_insert_project(
             Err(err)
         }
     }
-
 }
 
 pub async fn try_insert_on_participation(
@@ -79,8 +80,8 @@ pub async fn try_insert_on_participation(
     let pro_id = project_setter.id.unwrap();
 
     let sql = format!(
-        "insert into public.participation (user_id, project_id, role, star) \
-                values('{user_id}','{pro_id}','0','0')"
+        "insert into public.participation (user_id, project_id,  star) \
+                values('{user_id}','{pro_id}','0')"
     );
     match sqlx::query(&sql)
         .fetch_one(&mut *db).await {
@@ -119,7 +120,7 @@ pub async fn select_project(
         pa.star
     FROM public.project p
     JOIN public.participation pa ON p.id = pa.project_id
-    LEFT JOIN public.user admin ON pa.user_id = admin.id AND pa.role = 0
+    LEFT JOIN public.user admin ON pa.user_id = admin.id
     WHERE pa.user_id = $1;
     "#;
     dbg!(&sql);

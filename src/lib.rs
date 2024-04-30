@@ -8,3 +8,4 @@ pub mod project;
 pub mod wiki;
 
 pub mod test_hub;
+pub mod topic;
