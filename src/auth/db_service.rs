@@ -35,7 +35,7 @@ pub async fn try_register_user(
                     SqlxError::RowNotFound =>{
                         let pwd = format!("{:x}",md5::compute(pwd));
                         let create_time = timestamp_to_date(get_current_timestamp());
-                        dbg!("time",&create_time);
+                        dbg!(&create_time);
                         let phone = phone.as_ref().map(String::as_str);
                         let email = email.as_ref().map(String::as_str);
                         let gender = gender.as_ref().map(String::as_str);
@@ -59,7 +59,7 @@ pub async fn try_register_user(
                                     public.user u left join public.organization org \
                                     on u.organization = org.id where u.id = $1 "
                                 ).bind(id).fetch_one(&mut *db).await {
-                                    org_id = v.get(0);
+                                    org_id = v.get::<Uuid,usize>(0).to_string();
                                     org_name = v.get(1);
                                 }
                                 RegisterResult::Success(SignData {
@@ -246,6 +246,7 @@ pub async fn edit_user(
 }
 
 pub async fn select_partners(org_id:String,mut db:GdDBC) -> DbQueryResult<UserCollector> {
+    let org_id = Uuid::from_str(org_id.as_str()).unwrap();
     let sql = "select * from public.user where organization = $1";
     let partners:Vec<_>;
     return match sqlx::query(sql).bind(org_id).fetch_all(&mut *db).await {

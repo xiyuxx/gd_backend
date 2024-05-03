@@ -8,6 +8,7 @@ pub mod route;
 use uuid::Uuid;
 
 use std::io::Cursor;
+use chrono::NaiveDateTime;
 use rocket::{ FromForm, Request, Response};
 use rocket::http::{ContentType};
 use rocket::response::Responder;
@@ -160,7 +161,7 @@ pub struct UserGetter {
     #[sqlx(default)]
     pub background:Option<String>,
     #[sqlx(default)]
-    pub create_time:Option<String>,
+    pub create_time:NaiveDateTime,
     #[sqlx(default)]
     pub role:Option<i16>,
     // organization_id no need to be passed

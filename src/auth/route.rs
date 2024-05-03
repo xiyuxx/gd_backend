@@ -98,7 +98,6 @@ pub async fn login(
                     dbg!(db_err.message());
                     Err(Status::InternalServerError)
                 }
-
             };
         }
     };

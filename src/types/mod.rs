@@ -277,7 +277,9 @@ pub struct ProjectSetter {
     #[field(name="description")]
     pub description:Option<String>,
     #[field(name="lastUpdate")]
-    pub last_update:Option<String>
+    pub last_update:Option<String>,
+    #[field(name="private")]
+    pub private:Option<bool>
 }
 
 #[derive(Debug,Serialize,Deserialize,FromForm,Eq, PartialEq)]
