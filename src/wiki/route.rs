@@ -7,9 +7,10 @@ use uuid::Uuid;
 use crate::db::{GdDBC, SqlxError};
 use crate::types::{Project, ProjectCollector, ProjectSetter, RtData, RtStatus, SingleEditResult};
 use crate::utils;
-use crate::wiki::db_service::select_space;
+use crate::utils::match_insert_res;
+use crate::wiki::db_service::{select_space, try_get_all_articles, try_set_article};
 use crate::wiki::db_service::try_set_wiki;
-use crate::wiki::types::WikiStar;
+use crate::wiki::types::{ArticleCollector, ArticleSetter, WikiStar};
 
 #[post("/set_wiki",data="<project_data>")]
 pub async fn set_wiki(
@@ -94,5 +95,37 @@ pub async fn set_wiki_star(
             Err(Status::InternalServerError)
         }
     }
+}
+
+#[get("/all?<wiki_id>")]
+pub async fn get_all_articles(
+    db:GdDBC,
+    wiki_id:String,
+) -> Result<RtData<ArticleCollector>,Status> {
+    let res = try_get_all_articles(db,wiki_id).await;
+
+    match res {
+        Ok(data) => {
+            Ok(RtData{
+                data,
+                msg: "get all articles success".to_string(),
+                success: true,
+                status: RtStatus::Success,
+            })
+        }
+        Err(_) => {
+            Err(Status::InternalServerError)
+        }
+    }
+}
+
+#[post("/set",data="<article>")]
+pub async fn set_article(
+    db:GdDBC,
+    article:Form<ArticleSetter>
+) -> Result<RtData<SingleEditResult>,Status>{
+    let res = try_set_article(db, article.into_inner()).await;
+
+    match_insert_res(res,"adjust article success".to_string())
 
 }

@@ -10,7 +10,7 @@ use gd_backend::project::work_item::route::{get_all_item, set_item};
 use gd_backend::state::{get_default_user_token, init_validate_instance};
 use gd_backend::test_hub::route::set_test_hub;
 use gd_backend::topic::route::set_topic;
-use gd_backend::wiki::route::{get_wiki, set_wiki, set_wiki_star};
+use gd_backend::wiki::route::{get_all_articles, get_wiki, set_article, set_wiki, set_wiki_star};
 use crate::catcher::{bad_request_catcher, error_catcher, not_found_catcher};
 
 mod catcher;
@@ -28,7 +28,7 @@ fn rocket()-> _ {
             add_workmate_to_project,get_participants,set_pro_star])
         .mount("/item",routes![set_item,get_all_item])
         .mount("/test",routes![set_test_hub])
-        .mount("/wiki",routes![set_wiki,get_wiki,set_wiki_star])
+        .mount("/wiki",routes![set_wiki,get_wiki,set_wiki_star,get_all_articles,set_article])
         .mount("/topic",routes![set_topic])
 
 }

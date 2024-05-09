@@ -1,10 +1,12 @@
 use std::str::FromStr;
-use sqlx::postgres::PgRow;
+use sqlx::postgres::{ PgRow};
 use uuid::Uuid;
 use jsonwebtoken::get_current_timestamp;
+use sqlx::{FromRow};
 use crate::db::{DbQueryResult, GdDBC, SqlxError};
 use crate::types::{ObjectTypes, ProjectSetter, SingleEditResult};
 use crate::utils::{get_sequence_name, timestamp_to_date};
+use crate::wiki::types::{ArticleCollector, ArticleGetter, ArticleSetter};
 
 pub async fn select_space(
     mut db:GdDBC,
@@ -55,11 +57,13 @@ pub async fn try_set_wiki(
         let sql = format!(
             "create SEQUENCE {}",pro_seq_name
         );
-        dbg!(&sql);
         if let Err(err) = sqlx::query(&sql).execute(&mut *db).await {
             dbg!("create sequence fail");
-            dbg!(err);
+            dbg!(&err);
+            return Err(err);
         }
+
+
     } else{
         pro_id = pro_c.id.unwrap();
         update_time = pro_c.last_update.unwrap();
@@ -113,5 +117,103 @@ pub async fn try_insert_on_wiki_participation(
             }
             Err(err)
         }
+    }
+}
+
+pub async fn try_get_all_articles(
+    mut db:GdDBC,
+    wiki_id: String
+) -> DbQueryResult<ArticleCollector> {
+    let pro_id = Uuid::from_str(wiki_id.as_str()).unwrap();
+
+    let item_collector:Vec<_>;
+    let sql = "select a.id, a.title,  \
+    a.content, a.last_update, a.father_id, a.last_update \
+    u.name update_name, u.avatar update_avatar \
+    from public.article a \
+    left join public.user u on a.update_id = u.id \
+    where a.wiki_id = $1".to_string();
+    match sqlx::query(&sql).bind(pro_id)
+        .fetch_all(&mut *db).await {
+        Ok(v) => {
+            dbg!("开始类型转化");
+            item_collector = v.iter().map(|row| {
+                dbg!("转换中");
+                let work_item: ArticleGetter = ArticleGetter::from_row(row).unwrap();
+                dbg!(&work_item);
+                work_item
+            }).collect::<Vec<ArticleGetter>>();
+            dbg!("whats wrong " ,item_collector.len());
+            Ok(ArticleCollector {
+                collector:item_collector
+            })
+        }
+        Err(err) => {
+            dbg!(&err);
+            Err(err)
+        }
+    }
+}
+
+
+pub async fn try_set_article(
+    mut db:GdDBC,
+    article:ArticleSetter
+) -> DbQueryResult<SingleEditResult> {
+    let is_new = article.id.is_none();
+
+    let wiki_id = Uuid::from_str(article.wiki_id.clone().as_str()).unwrap();
+    let title = article.title;
+    let content = article.content;
+    let update_id = Uuid::from_str(article.update_id.clone().as_str()).unwrap();
+    let father_id = article.father_id;
+    let last_update = article.last_update
+        .map_or(timestamp_to_date(get_current_timestamp()),|v|v.replace("T"," "));
+    if is_new {
+        let seq = get_sequence_name(ObjectTypes::WIKI,article.wiki_id);
+        let use_seq_sql = format!("alter table public.article alter column id \
+        set default NEXTVAL('{seq}')");
+
+        match sqlx::query(&use_seq_sql).execute(&mut *db).await {
+            Ok(_) => {
+                let sql = format!(
+                    "insert into public.article (wiki_id, title, content, \
+                    update_id, last_update, father_id ) values ($1,$2,$3,$4,'{last_update}',$5)"
+                );
+                match sqlx::query(&sql).bind(wiki_id).bind(title).bind(content).bind(update_id)
+                    .bind(father_id).execute(&mut *db).await {
+                    Ok(_) => { Ok(SingleEditResult::Success("insert article success".to_string())) }
+                    Err(err) => {
+                        if let SqlxError::RowNotFound = err {
+                            return Ok(SingleEditResult::Success("insert article success".to_string()))
+                        }
+                        dbg!(&err);
+                        Err(err)
+                    }
+                }
+            }
+            Err(err) => {
+                dbg!(&err);
+                return Err(err);
+            }
+        }
+    } else {
+        let id = article.id.unwrap();
+        let sql = format!("\
+        update public.article set title = $1, content = $2, update_id = $3,\
+         last_update = '{last_update}',father_id = $4 where id = $5 and wiki_id = $6\
+        ");
+        return match sqlx::query(&sql).bind(title).bind(content).bind(update_id)
+            .bind(father_id).bind(id).bind(wiki_id).execute(&mut *db).await {
+            Ok(_) => { Ok(SingleEditResult::Success("update article success".to_string())) }
+            Err(err) => {
+                dbg!(&err);
+                if let SqlxError::RowNotFound = err {
+                    return Ok(SingleEditResult::Success("update article success".to_string()));
+                }
+                Err(err)
+            }
+        }
+
     }
 }
