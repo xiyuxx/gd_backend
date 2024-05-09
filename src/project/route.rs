@@ -19,13 +19,13 @@ pub async fn set_project(
     utils::match_insert_res(res, "create project success".to_string())
 }
 
-#[get("/get_project?<user_id>")]
+#[get("/get_project?<id>")]
 pub async fn get_project(
     db:GdDBC,
-    user_id:String,
+    id:String,
 ) -> Result<RtData<ProjectCollector>,Status> {
 
-    let res = select_project(db,user_id).await;
+    let res = select_project(db, id).await;
     dbg!("开始执行查询所有项目");
     match res {
         Ok(v) => {
@@ -33,7 +33,6 @@ pub async fn get_project(
             // do not make sure the type in here
             let projects:Vec<_>;
             projects = v.iter().map(|row| Project::from_row(row).unwrap()).collect::<Vec<Project>>();
-            dbg!("查询到{}个项目",projects.len());
             Ok(RtData{
                 success:true,
                 msg:String::from("get all projects success"),

@@ -90,12 +90,10 @@ pub async fn try_get_all_items(
     from public.work_item wi \
     left join public.user u on wi.principal = u.id \
     where wi.project_id = $1".to_string();
-    dbg!(&sql);
     match sqlx::query(&sql).bind(pro_id)
         .fetch_all(&mut *db).await {
         Ok(v) => {
             dbg!("开始类型转化");
-
             item_collector = v.iter().map(|row| {
                 dbg!("转换中");
                 let work_item: WorkItemGetter = WorkItemGetter::from_row(row).unwrap();

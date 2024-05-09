@@ -108,9 +108,8 @@ impl<'r> FromRequest<'r> for UserMsg {
 
 #[derive(Debug,Serialize,Deserialize,Clone,Eq, PartialEq,FromRow)]
 pub struct LoginSuccessData{
-    #[sqlx(rename = "id")]
     #[sqlx(try_from = "Uuid")]
-    pub user_id:String,
+    pub id:String,
     pub name:String,
     #[sqlx(default)]
     pub phone:Option<String>,
@@ -134,7 +133,7 @@ pub struct LoginSuccessData{
 
 impl<'r> Responder<'r,'static> for RtData<LoginSuccessData> {
     fn respond_to(self, request: &'r Request<'_>) -> rocket::response::Result<'static> {
-        let user_id = self.data.user_id.as_str().to_owned();
+        let user_id = self.data.id.as_str().to_owned();
 
         let data = self.to_string();
 
